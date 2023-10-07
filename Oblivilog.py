@@ -72,17 +72,3 @@ if __name__ == "__main__":
     
     # Save the full user list to a text file
     save_user_list_to_file(message_count_per_user, 'user_message_counts.txt')
-    
-# Main Execution
-if __name__ == "__main__":
-    file_paths = glob.glob('chattrans/*.txt')
-    chat_df = concatenate_dfs(file_paths)
-    
-    # Optionally: Parse 'timestamp' to datetime object for further analysis
-    chat_df['timestamp'] = pd.to_timedelta(chat_df['timestamp'], errors='coerce')
-
-
-    message_count_per_user = analyze_data(chat_df)
-    top_users = message_count_per_user.head(25)  # Adjust number as per requirement
-    
-    visualize_top_users(top_users)
