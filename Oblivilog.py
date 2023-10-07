@@ -64,7 +64,7 @@ if __name__ == "__main__":
     chat_df['timestamp'] = pd.to_datetime(chat_df['timestamp'], errors='coerce')
 
     message_count_per_user = analyze_data(chat_df)
-    top_users = message_count_per_user.head(25)  # Adjust as per requirement
+    top_users = message_count_per_user.head(50)  # Adjust as per requirement
     
     visualize_top_users(top_users)
     
