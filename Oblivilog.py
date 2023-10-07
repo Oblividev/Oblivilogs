@@ -40,6 +40,37 @@ def visualize_top_users(top_users):
     plt.tight_layout()
     plt.show()
 
+def save_user_list_to_file(message_count, filename):
+    try:
+        with open(filename, 'w', encoding='utf-8') as file:
+            prev_count = -1
+            shared_rank = 1
+            for rank, (user, count) in enumerate(message_count.items(), start=1):
+                # Check if this user shares a rank with the previous user(s)
+                if count == prev_count:
+                    rank = shared_rank  # Use the rank of the first user with this count
+                else:
+                    shared_rank = rank  # Update the shared rank
+                file.write(f"{rank}. {user}: {count} messages\n")
+                prev_count = count  # Update the count to check against for the next user
+    except Exception as e:
+        print(f"Error writing to file {filename}: {str(e)}")
+
+# Main Execution
+if __name__ == "__main__":
+    file_paths = glob.glob('chattrans/*.txt')
+    chat_df = concatenate_dfs(file_paths)
+    
+    chat_df['timestamp'] = pd.to_datetime(chat_df['timestamp'], errors='coerce')
+
+    message_count_per_user = analyze_data(chat_df)
+    top_users = message_count_per_user.head(25)  # Adjust as per requirement
+    
+    visualize_top_users(top_users)
+    
+    # Save the full user list to a text file
+    save_user_list_to_file(message_count_per_user, 'user_message_counts.txt')
+    
 # Main Execution
 if __name__ == "__main__":
     file_paths = glob.glob('chattrans/*.txt')
