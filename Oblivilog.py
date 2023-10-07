@@ -61,7 +61,9 @@ if __name__ == "__main__":
     file_paths = glob.glob('chattrans/*.txt')
     chat_df = concatenate_dfs(file_paths)
     
-    chat_df['timestamp'] = pd.to_datetime(chat_df['timestamp'], errors='coerce')
+    chat_df['timestamp'] = pd.to_datetime(chat_df['timestamp'], format="%H:%M:%S", errors='coerce')
+
+
 
     message_count_per_user = analyze_data(chat_df)
     top_users = message_count_per_user.head(50)  # Adjust as per requirement
@@ -77,7 +79,8 @@ if __name__ == "__main__":
     chat_df = concatenate_dfs(file_paths)
     
     # Optionally: Parse 'timestamp' to datetime object for further analysis
-    chat_df['timestamp'] = pd.to_datetime(chat_df['timestamp'], errors='coerce')
+    chat_df['timestamp'] = pd.to_timedelta(chat_df['timestamp'], errors='coerce')
+
 
     message_count_per_user = analyze_data(chat_df)
     top_users = message_count_per_user.head(25)  # Adjust number as per requirement
