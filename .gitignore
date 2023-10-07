@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 /chattrans
 /user_message_counts.txt
+/emote_usage.txt
