@@ -77,19 +77,26 @@ def append_totals_to_file(message_count_per_user, filename):
         file.write(f"\nTotal Messages Sent: {message_count_per_user.sum()}\n")
         file.write(f"Total Participants: {len(message_count_per_user)}\n")
 
+def save_emote_usage_to_file(emote_usage, filename):
+    try:
+        with open(filename, 'w', encoding='utf-8') as file:
+            for emote, count in emote_usage.items():
+                file.write(f"{emote}: {count}\n")
+    except Exception as e:
+        print(f"Error writing to file {filename}: {str(e)}")
+
 # Main Execution
 if __name__ == "__main__":
     file_paths = glob.glob('chattrans/*.txt')
     chat_df = concatenate_dfs(file_paths)
     
-    # Ensure that your timestamp format matches the actual format in your data
-    chat_df['timestamp'] = pd.to_datetime(chat_df['timestamp'], errors='coerce')
+    # Adjusting the timestamp parsing
+    chat_df['timestamp'] = pd.to_datetime(chat_df['timestamp'], format="%H:%M:%S", errors='coerce')
 
     message_count_per_user = analyze_data(chat_df)
-    top_users = message_count_per_user.head(50)
+    top_users = message_count_per_user.head(50)  # or any other number you prefer
     
     visualize_top_users(top_users)
-    plot_messages_over_time(chat_df)
     
     # Emote Usage
     emotes = ["oblivi118WINK", "oblivi118Lighter", "oblivi118Hands", "oblivi118Gun",
@@ -103,3 +110,6 @@ if __name__ == "__main__":
     
     save_user_list_to_file(message_count_per_user, 'user_message_counts.txt')
     append_totals_to_file(message_count_per_user, 'user_message_counts.txt')
+    
+    # Save emote usage to a separate file
+    save_emote_usage_to_file(emote_usage, 'emote_usage.txt')
