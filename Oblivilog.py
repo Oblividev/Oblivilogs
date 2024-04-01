@@ -120,5 +120,7 @@ if __name__ == "__main__":
     save_user_list_to_file(message_count_per_user, 'user_message_counts.txt')
     append_totals_to_file(message_count_per_user, 'user_message_counts.txt')
     
+    sorted_emote_usage = dict(sorted(emote_usage.items(), key=lambda item: item[1], reverse=True))
+
     # Save emote usage to a separate file
-    save_emote_usage_to_file(emote_usage, 'emote_usage.txt')
+    save_emote_usage_to_file(sorted_emote_usage, 'emote_usage.txt')
