@@ -1,4 +1,5 @@
 from matplotlib.lines import lineStyles
+import sanitise
 import pandas as pd
 import matplotlib.pyplot as plt
 import re
@@ -30,7 +31,7 @@ def concatenate_dfs(file_paths):
 
 def analyze_data(chat_df):
     # Define the phrases that indicate a gifted subscription
-    gift_phrases = ["gifted a Tier 1 sub to", "community! They've gifted a total of"]
+    gift_phrases = ["gifted a Tier 1 sub to", "They've gifted a total of" ]
 
     # Filter out messages containing these phrases
     filtered_df = chat_df[~chat_df['message'].str.contains('|'.join(gift_phrases), case=True)]
@@ -124,3 +125,5 @@ if __name__ == "__main__":
 
     # Save emote usage to a separate file
     save_emote_usage_to_file(sorted_emote_usage, 'emote_usage.txt')
+    sanitise.modify_html_files()
+
