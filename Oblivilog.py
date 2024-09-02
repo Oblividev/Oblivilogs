@@ -27,7 +27,11 @@ def parse_chat_data(file_path: str) -> pd.DataFrame:
     for line in chat_data:
         match = pattern.match(line)
         if match:
-            chat_entries.append(match.groupdict())
+            entry = match.groupdict()
+            # Filter out gift sub notifications
+            if not ("gifted a Tier 1 sub to" in entry['message'] or 
+                    "is gifting" in entry['message']):
+                chat_entries.append(entry)
     
     return pd.DataFrame(chat_entries)
 
@@ -38,9 +42,7 @@ def concatenate_dfs(file_paths: List[str]) -> pd.DataFrame:
     return pd.concat(dfs, ignore_index=True)
 
 def analyze_data(chat_df: pd.DataFrame) -> pd.Series:
-    gift_phrases = ["gifted a Tier 1 sub to", "They've gifted a total of"]
-    filtered_df = chat_df[~chat_df['message'].str.contains('|'.join(gift_phrases), case=True)]
-    return filtered_df['username'].value_counts()
+    return chat_df['username'].value_counts()
 
 def visualize_top_users(top_users: pd.Series):
     plt.style.use('Solarize_Light2')
