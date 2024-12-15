@@ -22,15 +22,15 @@ def sanitize_filename(filename):
     sanitized_name = f"{day}-{month}-{year} {rest}"
     return sanitized_name
 
-def modify_html_files():
-    chat_files = glob.glob('chattrans/html/*.html')
+def modify_html_files(html_dir: str):
+    chat_files = glob.glob(os.path.join(html_dir, '*.html'))
     chat_files_details = []
 
     for path in chat_files:
         filename = os.path.basename(path)
         month_year, sort_date = month_year_from_filename(filename)
         sanitized_filename = sanitize_filename(filename)
-        final_path = os.path.join('chattrans', 'html', f"{sanitized_filename}.html")
+        final_path = os.path.join(html_dir, f"{sanitized_filename}.html")
         chat_files_details.append((path, sanitized_filename, month_year, sort_date, final_path))
 
     chat_files_details.sort(key=lambda x: x[3])
