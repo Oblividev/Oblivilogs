@@ -7,6 +7,13 @@ import glob
 import logging
 from typing import List, Dict
 import os
+from bokeh.plotting import figure, save
+from bokeh.resources import CDN
+from bokeh.embed import file_html
+from bokeh.models import (
+    ColumnDataSource, HoverTool, 
+    LinearColorMapper, NumeralTickFormatter
+)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -46,17 +53,60 @@ def analyze_data(chat_df: pd.DataFrame) -> pd.Series:
     return chat_df['username'].value_counts()
 
 def visualize_top_users(top_users: pd.Series, output_path: str):
-    plt.style.use('Solarize_Light2')
-    plt.figure(figsize=(18, 9))
-    plt.bar(top_users.index, top_users.values, color='darkorange')
-    plt.xticks(rotation=45, ha='right')
-    plt.yticks(fontsize=10)
-    plt.ylabel('Number of Messages')
-    plt.title('Top Users by Message Count')
-    plt.grid(axis='both', linestyle='--', alpha=0.7)
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300)
-    plt.close()
+    # Create data source with formatted numbers
+    source = ColumnDataSource(data={
+        'users': top_users.index,
+        'counts': top_users.values,
+        'counts_formatted': [f"{x:,}" for x in top_users.values]
+    })
+
+    # Create the figure with fixed y_range
+    max_count = max(top_users.values)
+    p = figure(
+        x_range=top_users.index.tolist(),
+        y_range=(0, max_count * 1.1),
+        height=600,
+        width=1200,
+        title=f'Top Users by Message Count (Total Messages: {top_users.sum():,})',
+        tools='xpan,xwheel_zoom,reset,save',
+        active_scroll='xwheel_zoom',
+        background_fill_color=None,
+        border_fill_color=None,
+        toolbar_sticky=False
+    )
+
+    # Add hover tooltips
+    p.add_tools(HoverTool(tooltips=[('User', '@users'), ('Messages', '@counts_formatted')]))
+
+    # Create and style the bar chart
+    p.vbar(
+        x='users', top='counts', width=0.8, source=source,
+        fill_color='#fd79a8', line_color=None,
+        hover_fill_color='#ff99cc', hover_line_color='#fd79a8'
+    )
+
+    # Style the chart
+    p.grid.grid_line_color = None
+    p.outline_line_color = None
+    text_color = '#dfe6e9'
+    
+    # Apply text styling
+    for element in [p.title, p.xaxis.axis_label, p.yaxis.axis_label]:
+        if element: element.text_color = text_color
+    for axis in [p.xaxis, p.yaxis]:
+        axis.major_label_text_color = text_color
+    
+    # Additional styling
+    p.xaxis.major_label_orientation = 0.7
+    p.yaxis.formatter = NumeralTickFormatter(format="0,0")
+    p.title.text_font_size = '16pt'
+    p.toolbar.logo = None
+    p.toolbar.autohide = True
+
+    # Save as HTML file
+    output_html = output_path.rsplit('.', 1)[0] + '.html'
+    with open(output_html, 'w') as f:
+        f.write(file_html(p, CDN, "Chat Statistics"))
 
 def save_user_list_to_file(message_count: pd.Series, filename: str):
     try:
