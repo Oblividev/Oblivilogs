@@ -1,7 +1,5 @@
-from matplotlib.lines import lineStyles
 import sanitise
 import pandas as pd
-import matplotlib.pyplot as plt
 import re
 import glob
 import logging
@@ -11,9 +9,10 @@ from bokeh.plotting import figure, save
 from bokeh.resources import CDN
 from bokeh.embed import file_html
 from bokeh.models import (
-    ColumnDataSource, HoverTool, 
+    ColumnDataSource, HoverTool,
     LinearColorMapper, NumeralTickFormatter
 )
+import json
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -37,10 +36,10 @@ def parse_chat_data(file_path: str) -> pd.DataFrame:
         if match:
             entry = match.groupdict()
             # Filter out gift sub notifications
-            if not ("gifted a Tier 1 sub to" in entry['message'] or 
+            if not ("gifted a Tier 1 sub to" in entry['message'] or
                     "is gifting" in entry['message']):
                 chat_entries.append(entry)
-    
+
     return pd.DataFrame(chat_entries)
 
 def concatenate_dfs(file_paths: List[str]) -> pd.DataFrame:
@@ -67,12 +66,12 @@ def visualize_top_users(top_users: pd.Series, output_path: str):
         y_range=(0, max_count * 1.1),
         height=600,
         width=1200,
-        title=f'Top Users by Message Count (Total Messages: {top_users.sum():,})',
+        title=f'Top Users by Message Count (First 50)',
         tools='xpan,xwheel_zoom,reset,save',
         active_scroll='xwheel_zoom',
         background_fill_color=None,
         border_fill_color=None,
-        toolbar_sticky=False
+        toolbar_sticky=True
     )
 
     # Add hover tooltips
@@ -80,7 +79,7 @@ def visualize_top_users(top_users: pd.Series, output_path: str):
 
     # Create and style the bar chart
     p.vbar(
-        x='users', top='counts', width=0.8, source=source,
+        x='users', top='counts', width=0.75, source=source,
         fill_color='#fd79a8', line_color=None,
         hover_fill_color='#ff99cc', hover_line_color='#fd79a8'
     )
@@ -89,13 +88,14 @@ def visualize_top_users(top_users: pd.Series, output_path: str):
     p.grid.grid_line_color = None
     p.outline_line_color = None
     text_color = '#dfe6e9'
-    
+
     # Apply text styling
     for element in [p.title, p.xaxis.axis_label, p.yaxis.axis_label]:
         if element: element.text_color = text_color
     for axis in [p.xaxis, p.yaxis]:
         axis.major_label_text_color = text_color
-    
+        axis.major_label_text_font_size = '10pt'
+
     # Additional styling
     p.xaxis.major_label_orientation = 0.7
     p.yaxis.formatter = NumeralTickFormatter(format="0,0")
@@ -137,16 +137,40 @@ def append_totals_to_file(message_count_per_user: pd.Series, filename: str):
 
 def save_emote_usage_to_file(emote_usage: Dict[str, int], filename: str):
     try:
+        # Get top 3 emotes
+        top_3_emotes = list(emote_usage.items())[:3]
+
+        html_content = '''        <div class="emote-stats">
+          <h2>Top Emotes</h2>
+          <div class="emote-podium">'''
+
+        # Position names for classes
+        positions = ['first', 'second', 'third']
+
+        for (emote, count), position in zip(top_3_emotes, positions):
+            extension = 'png'
+
+            html_content += f'''
+            <div class="podium-item {position}">
+              <img src="assets/emotes/{emote}.{extension}" alt="{emote}" class="emote-icon">
+              <span class="emote-count">{count}</span>
+            </div>'''
+
+        html_content += '''
+          </div>
+        </div>
+      </div>'''
+
         with open(filename, 'w', encoding='utf-8') as file:
-            for emote, count in emote_usage.items():
-                file.write(f"{emote}: {count}\n")
+            file.write(html_content)
     except Exception as e:
         logging.error(f"Error writing to file {filename}: {str(e)}")
 
 def process_streamer_data(streamer_path: str):
     """Process chat data for a single streamer."""
-    logging.info(f"Processing data for streamer: {streamer_path}")
-    
+    streamer_name = os.path.basename(streamer_path)
+    logging.info(f"Processing data for streamer: {streamer_name}")
+
     # Create output directories if they don't exist
     output_dir = os.path.join(streamer_path)
     html_dir = os.path.join(streamer_path, 'html')
@@ -159,40 +183,47 @@ def process_streamer_data(streamer_path: str):
         logging.warning(f"No chat files found in {streamer_path}")
         return
 
+    # Create the chat DataFrame first
     chat_df = concatenate_dfs(file_paths)
     chat_df['timestamp'] = pd.to_datetime(chat_df['timestamp'], format="%H:%M:%S", errors='coerce')
 
+    # Load and process emotes for this specific streamer
+    try:
+        with open('emotes.json', 'r') as f:
+            streamer_emotes = json.load(f)
+    except Exception as e:
+        logging.error(f"Error loading emotes.json: {str(e)}")
+        return
+
+    # Get emotes for this specific streamer
+    emotes = streamer_emotes.get(streamer_name, [])
+    if emotes:
+        emote_usage = count_emote_usage(chat_df, emotes)
+        sorted_emote_usage = dict(sorted(emote_usage.items(), key=lambda item: item[1], reverse=True))
+        save_emote_usage_to_file(sorted_emote_usage, os.path.join(output_dir, 'emote_usage.txt'))
+
+    # Rest of the processing...
     message_count_per_user = analyze_data(chat_df)
     top_users = message_count_per_user.head(TOP_USERS_COUNT)
-    
+
     # Save visualization with streamer-specific filename
     visualize_top_users(top_users, os.path.join(output_dir, 'top_users.png'))
-    
-    emotes = ["oblivi118WINK", "oblivi118Lighter", "oblivi118Hands", "oblivi118Gun",
-              "oblivi118Cozy", "oblivi118Cookie", "oblivi118Lurking", "oblivi118Giggle",
-              "oblivi118Sip", "oblivi118Pat", "oblivi118Sing", "oblivi118Heart",
-              "oblivi118Blush", "oblivi118Huh", "oblivi118Lol", "oblivi118Hehe",
-              "oblivi118What", "oblivi118Evil", "oblivi118Zzz", "oblivi118Tea"]
-    emote_usage = count_emote_usage(chat_df, emotes)
-    
+
     # Save files in streamer-specific directory
     save_user_list_to_file(message_count_per_user, os.path.join(output_dir, 'user_message_counts.txt'))
     append_totals_to_file(message_count_per_user, os.path.join(output_dir, 'user_message_counts.txt'))
-    
-    sorted_emote_usage = dict(sorted(emote_usage.items(), key=lambda item: item[1], reverse=True))
-    save_emote_usage_to_file(sorted_emote_usage, os.path.join(output_dir, 'emote_usage.txt'))
-    
+
     for user in TARGET_USERS:
         count = message_count_per_user.get(user.lower(), 0)
         logging.info(f"Final count for {user}: {count}")
-    
+
     # Process HTML files for this streamer
     sanitise.modify_html_files(html_dir)
 
 def main():
     # Get all streamer directories in chattrans
     streamer_dirs = [d for d in glob.glob('chattrans/*') if os.path.isdir(d)]
-    
+
     if not streamer_dirs:
         logging.warning("No streamer directories found in chattrans/")
         return
@@ -202,4 +233,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
