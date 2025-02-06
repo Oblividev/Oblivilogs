@@ -31,14 +31,33 @@ def parse_chat_data(file_path: str) -> pd.DataFrame:
 
     pattern = re.compile(r'\[(?P<timestamp>.+?)\] (?P<username>.+?): (?P<message>.+)')
     chat_entries = []
+
     for line in chat_data:
         match = pattern.match(line)
         if match:
             entry = match.groupdict()
-            # Filter out gift sub notifications
-            if not ("gifted a Tier 1 sub to" in entry['message'] or
-                    "is gifting" in entry['message']):
-                chat_entries.append(entry)
+            message = entry['message']
+
+            # Filter out gift sub notifications (single and multi)
+            if "gifted a Tier 1 sub to" in message or "is gifting" in message:
+                continue
+
+            # Filter out regular sub notifications without custom message
+            if re.match(r'^[^:]+subscribed at Tier \d+\.$', message):
+                continue
+
+            # Keep resub messages only if they have custom message
+            resub_match = re.match(r'^[^:]+subscribed at Tier \d+\. They\'ve subscribed for \d+ months?!(.*)$', message)
+            if resub_match:
+                # Only keep if there's additional message content after the system message
+                if not resub_match.group(1).strip():
+                    continue
+
+            # Filter out bits messages that are just "cheerX" without additional content
+            if re.match(r'^cheer\d+$', message.lower().strip()):
+                continue
+
+            chat_entries.append(entry)
 
     return pd.DataFrame(chat_entries)
 
