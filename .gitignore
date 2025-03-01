@@ -366,3 +366,5 @@ FodyWeavers.xsd
 /emote_usage.txt
 top_users.png
 chat_links.txt
+automated_oblivilog.py
+config.json
