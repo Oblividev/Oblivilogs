@@ -5,13 +5,6 @@ import glob
 import logging
 from typing import List, Dict
 import os
-from bokeh.plotting import figure, save
-from bokeh.resources import CDN
-from bokeh.embed import file_html
-from bokeh.models import (
-    ColumnDataSource, HoverTool,
-    LinearColorMapper, NumeralTickFormatter
-)
 import json
 
 # Set up logging
@@ -71,61 +64,116 @@ def analyze_data(chat_df: pd.DataFrame) -> pd.Series:
     return chat_df['username'].value_counts()
 
 def visualize_top_users(top_users: pd.Series, output_path: str):
-    # Create data source with formatted numbers
-    source = ColumnDataSource(data={
-        'users': top_users.index,
-        'counts': top_users.values,
-        'counts_formatted': [f"{x:,}" for x in top_users.values]
-    })
+    """Create a bar chart using Chart.js showing the top users by message count"""
 
-    # Create the figure with fixed y_range
-    max_count = max(top_users.values)
-    p = figure(
-        x_range=top_users.index.tolist(),
-        y_range=(0, max_count * 1.1),
-        height=600,
-        width=1200,
-        title=f'Top Users by Message Count (First 50)',
-        tools='xpan,xwheel_zoom,reset,save',
-        active_scroll='xwheel_zoom',
-        background_fill_color=None,
-        border_fill_color=None,
-        toolbar_sticky=True
-    )
+    # Prepare data for the chart
+    users = top_users.index.tolist()
+    counts = top_users.values.tolist()
 
-    # Add hover tooltips
-    p.add_tools(HoverTool(tooltips=[('User', '@users'), ('Messages', '@counts_formatted')]))
+    # Format the numbers with commas
+    formatted_counts = [f"{x:,}" for x in counts]
 
-    # Create and style the bar chart
-    p.vbar(
-        x='users', top='counts', width=0.75, source=source,
-        fill_color='#fd79a8', line_color=None,
-        hover_fill_color='#ff99cc', hover_line_color='#fd79a8'
-    )
+    # Generate HTML with Chart.js
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Chat Statistics</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+            .chart-container {{
+                height: 600px;
+                width: 100%;
+                max-width: 1200px;
+                margin: 0 auto;
+            }}
+            body {{
+                background-color: transparent;
+                color: #dfe6e9;
+                font-family: Arial, sans-serif;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="chart-container">
+            <canvas id="topUsersChart"></canvas>
+        </div>
+        <script>
+            const ctx = document.getElementById('topUsersChart').getContext('2d');
+            const chart = new Chart(ctx, {{
+                type: 'bar',
+                data: {{
+                    labels: {json.dumps(users)},
+                    datasets: [{{
+                        label: 'Message Count',
+                        data: {json.dumps(counts)},
+                        backgroundColor: '#fd79a8',
+                        hoverBackgroundColor: '#ff99cc',
+                        borderColor: 'transparent',
+                        borderWidth: 0
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {{
+                        title: {{
+                            display: true,
+                            text: 'Top Users by Message Count (First {TOP_USERS_COUNT})',
+                            color: '#dfe6e9',
+                            font: {{
+                                size: 16
+                            }}
+                        }},
+                        tooltip: {{
+                            callbacks: {{
+                                label: function(context) {{
+                                    return 'Messages: ' + context.raw.toLocaleString();
+                                }}
+                            }}
+                        }}
+                    }},
+                    scales: {{
+                        x: {{
+                            ticks: {{
+                                color: '#dfe6e9',
+                                font: {{
+                                    size: 10
+                                }},
+                                maxRotation: 45,
+                                minRotation: 45
+                            }},
+                            grid: {{
+                                display: false
+                            }}
+                        }},
+                        y: {{
+                            beginAtZero: true,
+                            ticks: {{
+                                color: '#dfe6e9',
+                                font: {{
+                                    size: 10
+                                }},
+                                callback: function(value) {{
+                                    return value.toLocaleString();
+                                }}
+                            }},
+                            grid: {{
+                                color: 'rgba(223, 230, 233, 0.1)'
+                            }}
+                        }}
+                    }}
+                }}
+            }});
+        </script>
+    </body>
+    </html>
+    """
 
-    # Style the chart
-    p.grid.grid_line_color = None
-    p.outline_line_color = None
-    text_color = '#dfe6e9'
-
-    # Apply text styling
-    for element in [p.title, p.xaxis.axis_label, p.yaxis.axis_label]:
-        if element: element.text_color = text_color
-    for axis in [p.xaxis, p.yaxis]:
-        axis.major_label_text_color = text_color
-        axis.major_label_text_font_size = '10pt'
-
-    # Additional styling
-    p.xaxis.major_label_orientation = 0.7
-    p.yaxis.formatter = NumeralTickFormatter(format="0,0")
-    p.title.text_font_size = '16pt'
-    p.toolbar.logo = None
-    p.toolbar.autohide = True
-
-    # Save as HTML file
+    # Save the HTML file
     output_html = output_path.rsplit('.', 1)[0] + '.html'
-    with open(output_html, 'w') as f:
-        f.write(file_html(p, CDN, "Chat Statistics"))
+    with open(output_html, 'w', encoding='utf-8') as f:
+        f.write(html_content)
 
 def save_user_list_to_file(message_count: pd.Series, filename: str):
     try:
